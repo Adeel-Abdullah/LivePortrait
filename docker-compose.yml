@@ -1,0 +1,138 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    image: liveportrait:latest
+    ports:
+      - "5000:5000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    tty: true
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all   # 👈 Add this line
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility  # 👈 Add this line
+      - SECRET_KEY=${SECRET_KEY}
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_started
+      celery-worker:
+        condition: service_started
+    networks:
+      - twotier
+    volumes:
+      # 🔹 Option 1: Use Bind Mounts (for Development)
+      # Uncomment the following lines to use bind mounts (files visible on host)
+      # - ./uploads:/app/uploads
+      # - ./outputs:/app/outputs
+
+      # 🔹 Option 2: Use Docker Volumes (for Production)
+      # Uncomment the following lines to use isolated Docker-managed volumes
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+
+  # gradio_app:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.gradio
+  #   ports:
+  #     - "8890:8890"
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [ gpu ]
+  #   tty: true
+  #   environment:
+  #     - SECRET_KEY=${SECRET_KEY}
+  #     - REDIS_URL=redis://redis:6379/0
+  #     - CELERY_BROKER_URL=redis://redis:6379/0
+  #     - CELERY_RESULT_BACKEND=redis://redis:6379/0
+  #   depends_on:
+  #     redis:
+  #       condition: service_started
+  #     # celery-worker:
+  #     #   condition: service_started
+  #   networks:
+  #     - twotier
+
+  redis:
+    image: redis:latest
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - twotier
+
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.flask
+    image: liveportrait:latest
+    command: celery -A app.celery_app --workdir=. worker -l info
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all   # 👈 Add this line
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility  # 👈 Add this line
+      - REDIS_URL=redis://redis:6379/0
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_started
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    tty: true
+    networks:
+      - twotier
+    volumes:
+      # 🔹 Option 1: Use Bind Mounts (for Development)
+      # Uncomment the following lines to use bind mounts (files visible on host)
+      # - ./uploads:/app/uploads
+      # - ./outputs:/app/outputs
+
+      # 🔹 Option 2: Use Docker Volumes (for Production)
+      # Uncomment the following lines to use isolated Docker-managed volumes
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+
+  celery-flower:
+    image: mher/flower
+    command: celery flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    volumes:
+      - flower_data:/data
+    depends_on:
+      - redis
+      - celery-worker
+    networks:
+      - twotier
+
+networks:
+  twotier:
+    driver: bridge
+
+volumes:
+  uploads:  # Docker volume (used only if uncommented above)
+  outputs:
+  flower_data:
