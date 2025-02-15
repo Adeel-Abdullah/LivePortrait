@@ -6,12 +6,12 @@ __pycache__/
 *$py.class
 
 # Model weights
-**/*.pth
-**/*.onnx
+# **/*.pth
+# **/*.onnx
 
-pretrained_weights/*.md
-pretrained_weights/docs
-pretrained_weights/liveportrait
+# pretrained_weights/*.md
+# pretrained_weights/docs
+# pretrained_weights/liveportrait
 pretrained_weights/liveportrait_animals
 
 # Ipython notebook
@@ -32,3 +32,5 @@ LivePortrait_env/
 src/utils/dependencies/XPose/models/UniPose/ops/build
 src/utils/dependencies/XPose/models/UniPose/ops/dist
 src/utils/dependencies/XPose/models/UniPose/ops/MultiScaleDeformableAttention.egg-info
+
+.env
